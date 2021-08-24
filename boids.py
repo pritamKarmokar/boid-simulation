@@ -5,7 +5,7 @@ from pygame.locals import *
 import os
 import sys
 from config import *
-from random import choice
+from random import choice, random, randint
 import numpy as np
 
 SCREEN_SIZE = WIDTH, HEIGHT = (1024, 1024)
@@ -28,13 +28,15 @@ class Boid(pygame.sprite.Sprite):
                                       [-5, 26/3]])
         
         # appearance
-        self.color = choice(purples)
+        self.color = choice(multi_colors)
         self.image = pygame.Surface((15,15))
         self.rect = pygame.draw.polygon(self.image, self.color, ((0, 5), (0, 10), (10, 10), (10, 15), (15, 8), (10, 0), (10, 5)))
         # self.image.fill(self.color)
-        self.acceleration = pygame.Vector2(0.5,0.0)
-        self.velocity = pygame.Vector2(5.0,0.0)
-        self.position = pygame.Vector2(SCREEN_CENTER)
+        self.spawn_pad = 50
+        self.position = pygame.Vector2(randint(self.spawn_pad, WIDTH-self.spawn_pad), randint(self.spawn_pad, HEIGHT-self.spawn_pad))
+        self.acceleration = pygame.Vector2(0.0,0.0)
+        self.velocity = pygame.Vector2(randint(-5,5),randint(-5,5)) * 10
+        self.angle = atan2(self.velocity[1], self.velocity[0])
         # self.rect = self.image.get_rect()
 
     def update(self):
@@ -43,18 +45,22 @@ class Boid(pygame.sprite.Sprite):
         self.rect.centery = int(self.position[1])
 
     def update_kinematics(self,dt):
+        self.acceleration = pygame.Vector2(random()*4 - 2, random()*4 - 2)
         self.velocity += self.acceleration*dt
         self.position += self.velocity*dt
 
     
-    def draw_boid(self, screen, position, angle):
+    def draw_boid(self, screen, position=None, angle=None):
+        position = self.position if position is None else position
+        angle = self.angle if angle is None else angle
+        
         points = self.shape_points
 
         rotated_points = points @ np.array([[cos(angle), -sin(angle)], [sin(angle), cos(angle)]]).T 
 
         points = rotated_points + position
         self.rect = pygame.draw.polygon(screen, self.color, (tuple(points[0].flatten()), tuple(points[1].flatten()), tuple(points[2].flatten()), tuple(points[3].flatten())))
-        
+
 
 
 
@@ -70,12 +76,13 @@ class BoidSimulator:
         for _ in range(NUM_BOIDS):
             self.boids.append(Boid(self))
 
-        dist = 50
-        deltas = [(0,0), (dist,-dist), (-dist,-dist), (-dist,dist), (dist,dist)]
-        positions = [pygame.Vector2(SCREEN_CENTER) + delta for delta in deltas]
-        print(positions)
-        for i, position in enumerate(positions):
-            self.boids[i].position = pygame.Vector2(position)
+        # dist = 50
+        # deltas = [(0,0), 
+        #           (dist,-dist), (-dist,-dist), (-dist,dist), (dist,dist),
+        #           (2*dist,-2*dist), (-2*dist,-2*dist), (-2*dist,2*dist), (2*dist,2*dist), (3*dist, 0)]
+        # positions = [pygame.Vector2(SCREEN_CENTER) + delta for delta in deltas]
+        # for i, position in enumerate(positions):
+        #     self.boids[i].position = pygame.Vector2(position)
 
 
 
@@ -100,8 +107,9 @@ class BoidSimulator:
                     sim_running = False
                     pygame.quit()
 
+            for sprite in self.boid_sprites:
+                sprite.draw_boid(screen)
             self.boid_sprites.update()
-            self.boid_sprites.draw(screen)
 
             for boid in self.boid_sprites:
                 boid.update_kinematics(dt)
