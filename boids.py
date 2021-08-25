@@ -27,7 +27,7 @@ class Boid(pygame.sprite.Sprite):
         self.shape_points *= self.shape_scale_factor
         
         # appearance
-        self.color = choice(whites)
+        self.color = choice(BOID_COLORS)
 
         # shape
         self.spawn_pad = 100
@@ -150,7 +150,7 @@ class BoidSimulator:
         for _ in range(NUM_BOIDS):
             self.boids.append(Boid(self))
 
-        self.boids[-1].color = pinks[0]
+        self.boids[-1].color = THE_ONE_COLOR
         # draw 
         for sprite in self.boid_sprites:
             sprite.draw_boid(self.screen)
