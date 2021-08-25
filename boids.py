@@ -19,7 +19,7 @@ class Boid(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         # set shape points
-        self.shape_scale_factor = 0.7
+        self.shape_scale_factor = 1
         self.shape_points = np.array([[0,0],
                                       [-5, -26/3],
                                       [10, 0],
@@ -27,7 +27,7 @@ class Boid(pygame.sprite.Sprite):
         self.shape_points *= self.shape_scale_factor
         
         # appearance
-        self.color = choice(greens)
+        self.color = choice(whites)
 
         # shape
         self.spawn_pad = 100
@@ -39,10 +39,10 @@ class Boid(pygame.sprite.Sprite):
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
         # perception
-        self.max_range = randint(200,300)
+        self.max_range = randint(150,250)
         self.max_vision = radians(randint(120,160))
 
-        self.max_speed = randint(50,100)
+        self.max_speed = randint(200,250)
         self.max_acceleration = randint(7,10)
 
 
@@ -83,7 +83,12 @@ class Boid(pygame.sprite.Sprite):
     def update_kinematics(self,dt):
         # self.update_acceleration()
         # self.acceleration = pygame.Vector2(random()*4 - 2, random()*4 - 2)
+        if np.linalg.norm(self.acceleration) > 0:
+            self.acceleration = (self.acceleration / np.linalg.norm(self.acceleration)) * self.max_acceleration
+
+
         self.velocity += self.acceleration*dt
+
         self.position += self.velocity*dt
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
@@ -124,12 +129,21 @@ class Boid(pygame.sprite.Sprite):
         rect2.center = self.position
 
         pygame.draw.arc(screen, PERCEPTION_COLOR, rect, start_angle, end_angle, 1)
-        pygame.draw.arc(screen, PERCEPTION_COLOR, rect2, start_angle, end_angle, 3)
+        # pygame.draw.arc(screen, PERCEPTION_COLOR, rect2, start_angle, end_angle, 3)
 
 
 
 class BoidSimulator:
     def __init__(self):
+        os.environ['SDL_VIDEO_WINDOW_POS'] = '2,30'
+        pygame.init()
+        pygame.display.set_caption('Boid Simulation')
+        self.screen = pygame.display.set_mode(SCREEN_SIZE, flags=pygame.DOUBLEBUF)
+        self.screen.fill(SCREEN_BG_COLOR)
+
+        self.clock = pygame.time.Clock()
+
+        self.sim_running = True
         # create boids and assign let them assign themselves to a group
         self.boid_sprites = pygame.sprite.Group()
         self.boids = []
@@ -137,6 +151,10 @@ class BoidSimulator:
             self.boids.append(Boid(self))
 
         self.boids[-1].color = pinks[0]
+        # draw 
+        for sprite in self.boid_sprites:
+            sprite.draw_boid(self.screen)
+        sprite.draw_perception_arc(self.screen)
 
     def compute_separation(self, this_boid):
         visible_boids = [some_boid for some_boid in self.boid_sprites if some_boid is not this_boid and this_boid.can_see(some_boid)]
@@ -147,7 +165,7 @@ class BoidSimulator:
             rel_dist = np.linalg.norm(other_boid.position - this_boid.position)
 
             # scaled away vector by inverse distance
-            away = (this_boid.position - other_boid.position) / (rel_dist + 1e-16)
+            away = (this_boid.position - other_boid.position) / (rel_dist**2 + 1e-16)
             avg_away += away
 
         avg_away = avg_away / len(visible_boids) if len(visible_boids) > 0 else avg_away
@@ -245,33 +263,20 @@ class BoidSimulator:
 
 
     def run(self):
-        os.environ['SDL_VIDEO_WINDOW_POS'] = '2,30'
-        pygame.init()
-        pygame.display.set_caption('Boid Simulation')
-        screen = pygame.display.set_mode(SCREEN_SIZE, flags=pygame.DOUBLEBUF)
-        screen.fill(SCREEN_BG_COLOR)
-
-        clock = pygame.time.Clock()
-
-        sim_running = True
         
-        while sim_running:
+        
+        while self.sim_running:
             # update clock
-            dt = clock.tick(FPS) / 1000
+            dt = self.clock.tick(FPS) / 1000
 
             # re-draw background
-            screen.fill(SCREEN_BG_COLOR)
+            self.screen.fill(SCREEN_BG_COLOR)
 
             # handle events (only quit for now)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    sim_running = False
+                    self.sim_running = False
                     pygame.quit()
-
-            # draw 
-            for sprite in self.boid_sprites:
-                sprite.draw_boid(screen)
-            sprite.draw_perception_arc(screen)
 
             # update acceleration
             for boid in self.boid_sprites:
@@ -281,7 +286,7 @@ class BoidSimulator:
                 containment = self.compute_containment(boid)
 
                 # print(f'alignment - {alignment}, cohesion - {cohesion}, separation = {separation}, containment - {containment}')
-                acc_total = 1*alignment + 1*cohesion + 0.5*separation + 1.0*containment
+                acc_total = 0.3*boid.acceleration +  2*alignment + 1.8*cohesion + 1*separation + 1*containment
                 
                 # update boid acceleration
                 boid.acceleration = pygame.Vector2(acc_total[0], acc_total[1])
@@ -292,6 +297,11 @@ class BoidSimulator:
 
             # update rects
             self.boid_sprites.update()
+
+            # draw 
+            for sprite in self.boid_sprites:
+                sprite.draw_boid(self.screen)
+            sprite.draw_perception_arc(self.screen)
 
             pygame.display.flip()
 
