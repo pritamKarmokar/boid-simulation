@@ -8,10 +8,10 @@ from config import *
 from random import choice, random, randint
 import numpy as np
 
-SCREEN_SIZE = WIDTH, HEIGHT = (1024, 1024)
+SCREEN_SIZE = WIDTH, HEIGHT = (800, 600)
 SCREEN_CENTER = (WIDTH//2, HEIGHT//2)
 SCREEN_BG_COLOR = (40,40,40)
-NUM_BOIDS = 3
+NUM_BOIDS = 21
 FPS = 30
 
 
@@ -24,45 +24,48 @@ class Boid(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         # set shape points
+        self.shape_scale_factor = 0.7
         self.shape_points = np.array([[0,0],
                                       [-5, -26/3],
                                       [10, 0],
-                                      [-5, 26/3]])
+                                      [-5, 26/3]]) 
+        self.shape_points *= self.shape_scale_factor
         
         # appearance
-        self.color = choice(multi_colors)
+        self.color = choice(greens)
 
         # shape
-        self.spawn_pad = 50
+        self.spawn_pad = 100
         self.position = pygame.Vector2(randint(self.spawn_pad, WIDTH-self.spawn_pad), randint(self.spawn_pad, HEIGHT-self.spawn_pad))
 
         # kinematics
         self.acceleration = pygame.Vector2(0.0,0.0)
-        self.velocity = pygame.Vector2(randint(-5,5),randint(-5,5)) * 20
+        self.velocity = pygame.Vector2(randint(-5,5),randint(-5,5)) * 30
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
         # perception
-        self.perception = randint(20,30)
+        self.max_range = randint(200,300)
+        self.max_vision = radians(randint(120,160))
 
         self.max_speed = randint(50,100)
-        self.max_force = randint(5,8)
+        self.max_acceleration = randint(5,7)
 
 
     def wrap_horizontally(self, x):
-        # if x <= 0:
-        #     x = WIDTH
-        # elif x >= WIDTH:
-        #     x = 0
+        if x <= 0:
+            x = WIDTH
+        elif x >= WIDTH:
+            x = 0
         
-        return x%WIDTH
+        return x
 
 
     def wrap_vertically(self, y):
-        # if y <= 0:
-        #     y = HEIGHT
-        # elif y >= HEIGHT:
-        #     y = 0
-        return y%HEIGHT
+        if y <= 0:
+            y = HEIGHT
+        elif y >= HEIGHT:
+            y = 0
+        return y
 
 
     def update(self):
@@ -71,6 +74,16 @@ class Boid(pygame.sprite.Sprite):
         self.rect.centerx = self.position[0]
         self.rect.centery = self.position[1]
 
+    def can_see(self, sprite):
+        rel_pos = sprite.position - self.position
+        rel_dist = np.linalg.norm(rel_pos)
+        rel_angle = atan2(rel_pos[1], rel_pos[0]) - self.angle
+        if rel_dist <= self.max_range and abs(rel_angle) <= self.max_vision:
+            can_see = True
+        else:
+            can_see = False
+
+        return can_see
 
     def update_kinematics(self,dt):
         # self.update_acceleration()
@@ -102,6 +115,110 @@ class BoidSimulator:
         for _ in range(NUM_BOIDS):
             self.boids.append(Boid(self))
 
+    def compute_separation(self, this_boid):
+        visible_boids = [some_boid for some_boid in self.boid_sprites if some_boid is not this_boid and this_boid.can_see(some_boid)]
+
+        avg_away = pygame.Vector2(0.0, 0.0)
+        separation = pygame.Vector2(0.0, 0.0)
+        for other_boid in visible_boids:
+            rel_dist = np.linalg.norm(other_boid.position - this_boid.position)
+
+            # scaled away vector by inverse distance
+            away = (this_boid.position - other_boid.position) / (rel_dist + 1e-16)
+            avg_away += away
+
+        avg_away = avg_away / len(visible_boids) if len(visible_boids) > 0 else avg_away
+
+        # normalize the average away vector, to be treated as velocity with max speed
+        avg_away_norm = np.linalg.norm(avg_away)
+        if avg_away_norm > 0:
+            avg_away = (avg_away / avg_away_norm) * this_boid.max_speed
+
+        # compute acceleration, normalize to max_force
+        separation = avg_away - this_boid.velocity
+        separation_norm = np.linalg.norm(separation)
+        if separation_norm > 0:
+            separation = (separation / separation_norm) * this_boid.max_acceleration
+
+        return separation
+
+
+    def compute_alignment(self, this_boid):
+        visible_boids = [some_boid for some_boid in self.boid_sprites if some_boid is not this_boid and this_boid.can_see(some_boid)]
+
+        avg_vel = pygame.Vector2(0.0, 0.0)
+        for other_boid in visible_boids:
+            avg_vel += other_boid.velocity
+
+        avg_vel = avg_vel / len(visible_boids) if len(visible_boids) > 0 else avg_vel
+
+        # normalize to max speed
+        avg_vel_norm = np.linalg.norm(avg_vel)
+        if avg_vel_norm > 0:
+            avg_vel = (avg_vel / avg_vel_norm) * this_boid.max_speed
+
+        # compute acceleration 
+        alignment = avg_vel - this_boid.velocity
+        alignment_norm = np.linalg.norm(alignment)
+        if alignment_norm > 0:
+            alignment = (alignment / alignment_norm) * this_boid.max_acceleration
+
+        return alignment
+
+
+    def compute_cohesion(self, this_boid):
+        visible_boids = [some_boid for some_boid in self.boid_sprites if some_boid is not this_boid and this_boid.can_see(some_boid)]
+
+        centroid = pygame.Vector2(0.0, 0.0)
+        for other_boid in visible_boids:
+            centroid += other_boid.position
+
+        centroid = centroid / len(visible_boids) if len(visible_boids) > 0 else centroid
+
+        toward = centroid - this_boid.position
+
+        # normalize to max speed
+        toward_norm = np.linalg.norm(toward)
+        if toward_norm > 0:
+            toward = (toward / toward_norm) * this_boid.max_speed
+
+        # compute acceleration, normalize
+        cohesion = toward - this_boid.velocity
+        cohesion_norm = np.linalg.norm(cohesion)
+        if cohesion_norm > 0:
+            cohesion = (cohesion / cohesion_norm) * this_boid.max_acceleration
+
+        return cohesion
+
+
+    def compute_containment(self, this_boid):
+        wall_points = [pygame.Vector2(this_boid.position[0], 0), 
+                       pygame.Vector2(0, this_boid.position[1]),
+                       pygame.Vector2(this_boid.position[0], HEIGHT),
+                       pygame.Vector2(WIDTH, this_boid.position[1])]
+
+        avoid = pygame.Vector2(0.0, 0.0)
+        for point in wall_points:
+            rel_pos = point - this_boid.position
+            rel_angle = atan2(rel_pos[1], rel_pos[0]) - this_boid.angle
+            rel_dist = np.linalg.norm(rel_pos)
+            x, y = tuple(this_boid.velocity.elementwise()*(-1, 1))
+            avoid += pygame.Vector2(y, x) / (rel_dist + 1e-16)
+
+        avoid /= len(wall_points)
+
+        # normalize to max speed
+        avoid_norm = np.linalg.norm(avoid)
+        if avoid_norm > 0:
+            avoid = (avoid / avoid_norm) * this_boid.max_speed
+
+        # compute acceleration, normalize
+        containment = avoid - this_boid.velocity
+        containment_norm = np.linalg.norm(containment)
+        if containment_norm > 0:
+            containment = (containment / containment_norm) * this_boid.max_acceleration
+
+        return containment
 
 
     def run(self):
@@ -134,82 +251,16 @@ class BoidSimulator:
 
             # update acceleration
             for boid in self.boid_sprites:
-                avg_vel = np.zeros((1,2))
-                com = np.zeros((1,2))
-                alignment = np.zeros((1,2))
-                cohesion = np.zeros((1,2))
-                separation = np.zeros((1,2))
-                avg_v = np.zeros((1,2))
-                avg_wall = np.zeros((1,2))
-                count = 0
-                # boid alignment
-                for sprite in self.boid_sprites:
-                    dist = np.linalg.norm(sprite.position-boid.position)
-                    if sprite is not boid and dist < boid.perception:
-                        avg_vel += sprite.velocity
-                        count += 1
-                if count > 0:
-                    avg_vel /= count
-                    if np.linalg.norm(avg_vel) > 0:
-                        avg_vel = (avg_vel/np.linalg.norm(avg_vel)) * boid.max_speed
-                    alignment = avg_vel - boid.velocity
-                    if np.linalg.norm(alignment) > 0:
-                        alignment = (alignment/np.linalg.norm(alignment)) * boid.max_force
+                separation = self.compute_separation(boid)
+                alignment = self.compute_alignment(boid)
+                cohesion = self.compute_cohesion(boid)
+                containment = self.compute_containment(boid)
 
-                count = 0
-                # boid cohesion
-                for sprite in self.boid_sprites:
-                    dist = np.linalg.norm(sprite.position-boid.position)
-                    if sprite is not boid and dist < boid.perception:
-                        com += sprite.position
-                        count += 1
-                if count > 0:
-                    com /= count
-                    vec_com = com - boid.position
-                    if np.linalg.norm(vec_com) > 0:
-                        vec_com = (vec_com/np.linalg.norm(vec_com)) * boid.max_speed
-                    cohesion = vec_com - boid.velocity 
-                    if np.linalg.norm(cohesion) > 0:
-                        cohesion = (cohesion/np.linalg.norm(cohesion)) * boid.max_force
-
-                count = 0
-                # boid separation
-                for sprite in self.boid_sprites:
-                    dist = np.linalg.norm(sprite.position-boid.position)
-                    if sprite is not boid and dist < boid.perception:
-                        diff = (boid.position - sprite.position) / dist
-                        avg_v += diff
-                        count += 1
-                if count > 0:
-                    avg_v /= count
-                walls = [pygame.Vector2(boid.position[0],0), 
-                         pygame.Vector2(0,boid.position[1]),
-                         pygame.Vector2(boid.position[0],HEIGHT),
-                         pygame.Vector2(WIDTH,boid.position[1])]
-                wall_count = 0
-                for wall in walls:
-                    dist = np.linalg.norm(wall-boid.position)
-                    if dist < boid.perception*5:
-                        diff = (boid.position - wall) / dist**2
-                        avg_wall += diff
-                        wall_count += 1
-                if count > 0 or wall_count > 0:
-                    avg_v += 100*avg_wall/wall_count
-                    if np.linalg.norm(avg_v) > 0:
-                        avg_v = (avg_v/np.linalg.norm(avg_v)) * boid.max_speed
-                    separation = avg_v - boid.velocity
-                    if np.linalg.norm(separation) > 0:
-                        separation = (separation/np.linalg.norm(separation)) * boid.max_force
-
-                acc_total = 1*alignment.flatten() + 1*cohesion.flatten() + 1*separation.flatten()
+                # print(f'alignment - {alignment}, cohesion - {cohesion}, separation = {separation}, containment - {containment}')
+                acc_total = 1*alignment + 1*cohesion + 0.5*separation + 1.0*containment
                 
                 # update boid acceleration
                 boid.acceleration = pygame.Vector2(acc_total[0], acc_total[1])
-
-
-
-                # separation = (sum([(np.linalg.norm(nbr.position - boid.position))**-2 for nbr in self.boid_sprites if nbr is not boid]) / (NUM_BOIDS-1) ) - (np.linalg.norm(boid.position))**-2
-                # print(f'{alignment}, {cohesion}, {separation}, {acc_total}')
 
             # update kinematics
             for boid in self.boid_sprites:
