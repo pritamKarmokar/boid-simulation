@@ -8,11 +8,6 @@ from config import *
 from random import choice, random, randint
 import numpy as np
 
-SCREEN_SIZE = WIDTH, HEIGHT = (800, 600)
-SCREEN_CENTER = (WIDTH//2, HEIGHT//2)
-SCREEN_BG_COLOR = (40,40,40)
-NUM_BOIDS = 21
-FPS = 30
 
 
 class Boid(pygame.sprite.Sprite):
@@ -39,8 +34,8 @@ class Boid(pygame.sprite.Sprite):
         self.position = pygame.Vector2(randint(self.spawn_pad, WIDTH-self.spawn_pad), randint(self.spawn_pad, HEIGHT-self.spawn_pad))
 
         # kinematics
-        self.acceleration = pygame.Vector2(0.0,0.0)
-        self.velocity = pygame.Vector2(randint(-5,5),randint(-5,5)) * 30
+        self.acceleration = pygame.Vector2(0.0, 0.0)
+        self.velocity = pygame.Vector2(randint(-5,5), randint(-5,5)) * 30
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
         # perception
@@ -48,7 +43,7 @@ class Boid(pygame.sprite.Sprite):
         self.max_vision = radians(randint(120,160))
 
         self.max_speed = randint(50,100)
-        self.max_acceleration = randint(5,7)
+        self.max_acceleration = randint(7,10)
 
 
     def wrap_horizontally(self, x):
@@ -93,9 +88,9 @@ class Boid(pygame.sprite.Sprite):
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
     
-    def draw_boid(self, screen, position=None, angle=None):
-        position = self.position if position is None else position
-        angle = self.angle if angle is None else angle
+    def draw_boid(self, screen):
+        position = self.position 
+        angle = atan2(self.velocity[1], self.velocity[0]) 
         
         points = self.shape_points
 
@@ -104,6 +99,32 @@ class Boid(pygame.sprite.Sprite):
         points = rotated_points + position
         self.rect = pygame.draw.polygon(screen, self.color, (tuple(points[0].flatten()), tuple(points[1].flatten()), tuple(points[2].flatten()), tuple(points[3].flatten())))
 
+
+    def normalize_angle(self, angle):
+        return atan2(sin(angle), cos(angle))
+
+    def draw_perception_arc(self, screen):
+        position = self.position
+        angle = atan2(self.velocity[1], self.velocity[0])
+        # ahead = np.array([[int(self.max_range), 0]])
+        # ahead = ahead @ np.array([[cos(angle), -sin(angle)], [sin(angle), cos(angle)]]).T 
+        # ahead = (position + ahead).flatten()
+        # pygame.draw.line(screen, PERCEPTION_COLOR, tuple(position), tuple(ahead), 1)
+        
+        # note angle was computed using image topleft coords therefore clockwise is positive
+        # pygame draw arc takes in angles in the usual anti-clockwise positive convention with +/- pi range
+        start_angle = self.normalize_angle(-angle - self.max_vision)
+        end_angle = self.normalize_angle(-angle + self.max_vision)
+        size = int(self.max_range)
+        left = int(position[0] - size)
+        top = int(position[1] - size)
+        rect = pygame.rect.Rect(left, top, size*2, size*2)
+        rect.center = self.position
+        rect2 = pygame.rect.Rect(left+size//2, top+size//2, size, size)
+        rect2.center = self.position
+
+        pygame.draw.arc(screen, PERCEPTION_COLOR, rect, start_angle, end_angle, 1)
+        pygame.draw.arc(screen, PERCEPTION_COLOR, rect2, start_angle, end_angle, 3)
 
 
 
@@ -114,6 +135,8 @@ class BoidSimulator:
         self.boids = []
         for _ in range(NUM_BOIDS):
             self.boids.append(Boid(self))
+
+        self.boids[-1].color = pinks[0]
 
     def compute_separation(self, this_boid):
         visible_boids = [some_boid for some_boid in self.boid_sprites if some_boid is not this_boid and this_boid.can_see(some_boid)]
@@ -248,6 +271,7 @@ class BoidSimulator:
             # draw 
             for sprite in self.boid_sprites:
                 sprite.draw_boid(screen)
+            sprite.draw_perception_arc(screen)
 
             # update acceleration
             for boid in self.boid_sprites:
