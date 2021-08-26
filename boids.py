@@ -14,12 +14,12 @@ class Boid(pygame.sprite.Sprite):
     def __init__(self, simulator):
         self.simulator = simulator
 
-        # assign self ot group
+        # assign self to group
         self.groups = [self.simulator.boid_sprites]
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         # set shape points
-        self.shape_scale_factor = 1
+        self.shape_scale_factor = 0.9
         self.shape_points = np.array([[0,0],
                                       [-5, -26/3],
                                       [10, 0],
@@ -29,7 +29,7 @@ class Boid(pygame.sprite.Sprite):
         # appearance
         self.color = choice(BOID_COLORS)
 
-        # shape
+        # spawn
         self.spawn_pad = 100
         self.position = pygame.Vector2(randint(self.spawn_pad, WIDTH-self.spawn_pad), randint(self.spawn_pad, HEIGHT-self.spawn_pad))
 
@@ -39,8 +39,8 @@ class Boid(pygame.sprite.Sprite):
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
         # perception
-        self.max_range = randint(150,250)
-        self.max_vision = radians(randint(120,160))
+        self.max_range = randint(1200,1250)
+        self.max_vision = radians(randint(125,165))
 
         self.max_speed = randint(200,250)
         self.max_acceleration = randint(7,10)
@@ -286,7 +286,7 @@ class BoidSimulator:
                 containment = self.compute_containment(boid)
 
                 # print(f'alignment - {alignment}, cohesion - {cohesion}, separation = {separation}, containment - {containment}')
-                acc_total = 0.3*boid.acceleration +  2*alignment + 1.8*cohesion + 1*separation + 1*containment
+                acc_total = 0.3*boid.acceleration +  2*alignment + 1.8*cohesion + 1.5*separation + 1*containment
                 
                 # update boid acceleration
                 boid.acceleration = pygame.Vector2(acc_total[0], acc_total[1])
