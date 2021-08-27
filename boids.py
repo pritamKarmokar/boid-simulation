@@ -39,7 +39,7 @@ class Boid(pygame.sprite.Sprite):
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
         # perception
-        self.max_range = randint(1200,1250)
+        self.max_range = randint(250,300)
         self.max_vision = radians(randint(125,165))
 
         self.max_speed = randint(200,250)
