@@ -19,7 +19,7 @@ class Boid(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         # set shape points
-        self.shape_scale_factor = 0.9
+        self.shape_scale_factor = random()*(1.2-0.8) + 0.8
         self.shape_points = np.array([[0,0],
                                       [-5, -26/3],
                                       [10, 0],
@@ -39,10 +39,10 @@ class Boid(pygame.sprite.Sprite):
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
         # perception
-        self.max_range = randint(1200,1250)
-        self.max_vision = radians(randint(125,165))
+        self.max_range = randint(800,850)
+        self.max_vision = radians(randint(145,165))
 
-        self.max_speed = randint(200,250)
+        self.max_speed = randint(300,350)
         self.max_acceleration = randint(7,10)
 
 
