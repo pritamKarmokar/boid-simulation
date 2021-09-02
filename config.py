@@ -163,7 +163,7 @@ MULTI_COLORS = [
 ]
 
 # special boid
-THE_ONE_COLOR = REDS[1]
+THE_ONE_COLOR = REDS[0]
 
 # all boids
 BOID_COLORS = GREENS
