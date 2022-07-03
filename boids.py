@@ -31,7 +31,9 @@ class Boid(pygame.sprite.Sprite):
 
         # spawn
         self.spawn_pad = 100
-        self.position = pygame.Vector2(randint(self.spawn_pad, WIDTH-self.spawn_pad), randint(self.spawn_pad, HEIGHT-self.spawn_pad))
+        self.position = pygame.Vector2(
+            randint(self.spawn_pad, WIDTH - self.spawn_pad), 
+            randint(self.spawn_pad, HEIGHT - self.spawn_pad))
 
         # kinematics
         self.acceleration = pygame.Vector2(0.0, 0.0)
@@ -84,12 +86,13 @@ class Boid(pygame.sprite.Sprite):
         # self.update_acceleration()
         # self.acceleration = pygame.Vector2(random()*4 - 2, random()*4 - 2)
         if np.linalg.norm(self.acceleration) > 0:
-            self.acceleration = (self.acceleration / np.linalg.norm(self.acceleration)) * self.max_acceleration
+            self.acceleration = (self.acceleration / np.linalg.norm(self.acceleration)) 
+                                * self.max_acceleration
 
 
-        self.velocity += self.acceleration*dt
+        self.velocity += self.acceleration * dt
 
-        self.position += self.velocity*dt
+        self.position += self.velocity * dt
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
     
@@ -99,10 +102,21 @@ class Boid(pygame.sprite.Sprite):
         
         points = self.shape_points
 
-        rotated_points = points @ np.array([[cos(angle), -sin(angle)], [sin(angle), cos(angle)]]).T 
+        rotated_points = points @ np.array([
+            [cos(angle), -sin(angle)], 
+            [sin(angle),  cos(angle)],
+        ]).T 
 
-        points = rotated_points + position
-        self.rect = pygame.draw.polygon(screen, self.color, (tuple(points[0].flatten()), tuple(points[1].flatten()), tuple(points[2].flatten()), tuple(points[3].flatten())))
+        points = position + rotated_points
+        self.rect = pygame.draw.polygon(
+            screen, self.color, 
+            (
+                tuple(points[0].flatten()), 
+                tuple(points[1].flatten()), 
+                tuple(points[2].flatten()), 
+                tuple(points[3].flatten())
+            )
+        )
 
 
     def normalize_angle(self, angle):
@@ -144,20 +158,30 @@ class BoidSimulator:
         self.clock = pygame.time.Clock()
 
         self.sim_running = True
-        # create boids and assign let them assign themselves to a group
+        
         self.boid_sprites = pygame.sprite.Group()
+        
+        # create boids and assign let them assign themselves to a group
         self.boids = []
         for _ in range(NUM_BOIDS):
             self.boids.append(Boid(self))
 
         self.boids[-1].color = THE_ONE_COLOR
+        
         # draw 
         for sprite in self.boid_sprites:
             sprite.draw_boid(self.screen)
         sprite.draw_perception_arc(self.screen)
 
     def compute_separation(self, this_boid):
-        visible_boids = [some_boid for some_boid in self.boid_sprites if some_boid is not this_boid and this_boid.can_see(some_boid)]
+        visible_boids = [
+            some_boid 
+            for some_boid in self.boid_sprites 
+            if (
+                some_boid is not this_boid 
+                and this_boid.can_see(some_boid)
+            )
+        ]
 
         avg_away = pygame.Vector2(0.0, 0.0)
         separation = pygame.Vector2(0.0, 0.0)
@@ -185,7 +209,14 @@ class BoidSimulator:
 
 
     def compute_alignment(self, this_boid):
-        visible_boids = [some_boid for some_boid in self.boid_sprites if some_boid is not this_boid and this_boid.can_see(some_boid)]
+        visible_boids = [
+            some_boid 
+            for some_boid in self.boid_sprites 
+            if (
+                some_boid is not this_boid 
+                and this_boid.can_see(some_boid)
+            )
+        ]
 
         avg_vel = pygame.Vector2(0.0, 0.0)
         for other_boid in visible_boids:
@@ -208,7 +239,14 @@ class BoidSimulator:
 
 
     def compute_cohesion(self, this_boid):
-        visible_boids = [some_boid for some_boid in self.boid_sprites if some_boid is not this_boid and this_boid.can_see(some_boid)]
+        visible_boids = [
+            some_boid 
+            for some_boid in self.boid_sprites 
+            if (
+                some_boid is not this_boid 
+                and this_boid.can_see(some_boid)
+            )
+        ]
 
         centroid = pygame.Vector2(0.0, 0.0)
         for other_boid in visible_boids:
@@ -272,7 +310,6 @@ class BoidSimulator:
             # re-draw background
             self.screen.fill(SCREEN_BG_COLOR)
 
-            # handle events (only quit for now)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     self.sim_running = False
