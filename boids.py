@@ -39,11 +39,11 @@ class Boid(pygame.sprite.Sprite):
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
         # perception
-        self.max_range = randint(250,300)
-        self.max_vision = radians(randint(125,165))
+        self.max_range = randint(1000, 1100)
+        self.max_vision = radians(randint(125, 165))
 
-        self.max_speed = randint(200,250)
-        self.max_acceleration = randint(7,10)
+        self.max_speed = randint(300, 350)
+        self.max_acceleration = randint(7, 10)
 
 
     def wrap_horizontally(self, x):
