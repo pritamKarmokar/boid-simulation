@@ -19,7 +19,7 @@ class Boid(pygame.sprite.Sprite):
         pygame.sprite.Sprite.__init__(self, self.groups)
 
         # set shape points
-        self.shape_scale_factor = 0.9
+        self.shape_scale_factor = random()*(1.2-0.8) + 0.8
         self.shape_points = np.array([[0,0],
                                       [-5, -26/3],
                                       [10, 0],
@@ -39,11 +39,11 @@ class Boid(pygame.sprite.Sprite):
         self.angle = atan2(self.velocity[1], self.velocity[0])
 
         # perception
-        self.max_range = randint(1000, 1100)
-        self.max_vision = radians(randint(125, 165))
+        self.max_range = randint(750,800)
+        self.max_vision = radians(randint(145,165))
 
-        self.max_speed = randint(300, 350)
-        self.max_acceleration = randint(7, 10)
+        self.max_speed = randint(300,350)
+        self.max_acceleration = randint(7,10)
 
 
     def wrap_horizontally(self, x):
@@ -165,7 +165,7 @@ class BoidSimulator:
             rel_dist = np.linalg.norm(other_boid.position - this_boid.position)
 
             # scaled away vector by inverse distance
-            away = (this_boid.position - other_boid.position) / (rel_dist**2 + 1e-16)
+            away = (this_boid.position - other_boid.position) / ((max(0,rel_dist-4))**3 + 1e-16)
             avg_away += away
 
         avg_away = avg_away / len(visible_boids) if len(visible_boids) > 0 else avg_away
@@ -286,7 +286,7 @@ class BoidSimulator:
                 containment = self.compute_containment(boid)
 
                 # print(f'alignment - {alignment}, cohesion - {cohesion}, separation = {separation}, containment - {containment}')
-                acc_total = 0.3*boid.acceleration +  2*alignment + 1.8*cohesion + 1.5*separation + 1*containment
+                acc_total = 0.3*boid.acceleration +  2*alignment + 2.2*cohesion + 2.0*separation + 1*containment
                 
                 # update boid acceleration
                 boid.acceleration = pygame.Vector2(acc_total[0], acc_total[1])
